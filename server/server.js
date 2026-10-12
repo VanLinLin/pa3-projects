@@ -1,6 +1,6 @@
 // load MONGO_URI from the .env file
 require("dotenv").config();
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 
 // create the MongoDB client with the connection string from .env
 const client = new MongoClient(process.env.MONGO_URI);
@@ -134,6 +134,97 @@ app.post("/login", async (req, res) => {
     });
   }
 });
+
+
+// Create Project: create a new project in MongoDB
+app.post("/api/projects", async (req, res) => {
+  try {
+    // get the project information from the request
+    const { name, description, status, project_lead_id } = req.body;
+
+    // make sure all fields were entered
+    if (!name || !description || !status || !project_lead_id) {
+      return res.status(400).json({
+        message: "All fields are required",
+      });
+    }
+
+    // make sure the project status is valid
+    if (
+      status !== "Planning" &&
+      status !== "Active" &&
+      status !== "Completed"
+    ) {
+      return res.status(400).json({
+        message: "Invalid project status",
+      });
+    }
+
+    // make sure the project lead id has a valid ObjectId format
+    if (!ObjectId.isValid(project_lead_id)) {
+      return res.status(400).json({
+        message: "Invalid project lead",
+      });
+    }
+
+    // change the project lead id from a string into an ObjectId
+    const leadId = new ObjectId(project_lead_id);
+
+    // make sure the selected project lead exists
+    const lead = await users.findOne({
+      _id: leadId,
+    });
+
+    if (!lead) {
+      return res.status(404).json({
+        message: "Project lead not found",
+      });
+    }
+
+    // create the new project
+    const result = await projects.insertOne({
+      name,
+      description,
+      status,
+      project_lead_id: leadId,
+    });
+
+    // automatically add the project lead as a project member
+    await projectMemberships.insertOne({
+      project_id: result.insertedId,
+      user_id: leadId,
+    });
+
+    // tell the client that the project was created
+    res.status(201).json({
+      message: "Project created successfully",
+    });
+  } catch (error) {
+    // show an error if MongoDB cannot create the project
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// get all projects
+app.get("/api/projects", async (req, res) => {
+  try {
+    // get all projects from MongoDB
+    const projectList = await projects.find({}).toArray();
+
+    // send the projects back to the React client
+    res.status(200).json(projectList);
+  } catch (error) {
+    // show an error if MongoDB cannot return the projects
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
 
 // start listening for requests
 app.listen(9000, () => {
