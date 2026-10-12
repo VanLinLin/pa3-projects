@@ -225,6 +225,51 @@ app.get("/api/projects", async (req, res) => {
 });
 
 
+// get all members of one project
+app.get("/api/projects/:projectId/members", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // make sure the project id has a valid ObjectId format
+    if (!ObjectId.isValid(projectId)) {
+      return res.status(400).json({
+        message: "Invalid project id",
+      });
+    }
+
+    // change the project id from a string into an ObjectId
+    const projectObjectId = new ObjectId(projectId);
+
+    // make sure the project exists
+    const project = await projects.findOne({
+      _id: projectObjectId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    // get all membership records for this project
+    const memberships = await projectMemberships
+      .find({
+        project_id: projectObjectId,
+      })
+      .toArray();
+
+    // send the member user ids back to the React client
+    res.status(200).json(
+      memberships.map((membership) => membership.user_id)
+    );
+  } catch (error) {
+    // show an error if MongoDB cannot return the members
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
 
 // start listening for requests
 app.listen(9000, () => {
