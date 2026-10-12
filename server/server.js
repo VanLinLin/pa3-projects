@@ -27,6 +27,9 @@ const app = express();
 // the pa2 database and the users collection inside it
 const db = client.db("pa2");
 const users = db.collection("users");
+const projects = db.collection("projects");
+const projectMemberships = db.collection("projectMemberships");
+
 
 // read JSON bodies out of incoming requests
 app.use(express.json());
@@ -38,6 +41,25 @@ app.get("/", (req, res) => {
     res.json({
         message: "Server is running"
     });
+});
+
+
+// get all registered users
+app.get("/api/users", async (req, res) => {
+  try {
+    // get all users without sending their passwords
+    const userList = await users
+      .find({}, { projection: { password: 0 } })
+      .toArray();
+
+    // send the users back to the React client
+    res.status(200).json(userList);
+  } catch (error) {
+    // show an error if MongoDB cannot return the users
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
 });
 
 
