@@ -271,6 +271,82 @@ app.get("/api/projects/:projectId/members", async (req, res) => {
 });
 
 
+// add a member to one project
+app.post("/api/projects/:projectId/members", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { user_id } = req.body;
+
+    // make sure the project id has a valid ObjectId format
+    if (!ObjectId.isValid(projectId)) {
+      return res.status(400).json({
+        message: "Invalid project id",
+      });
+    }
+
+    // make sure the user id has a valid ObjectId format
+    if (!ObjectId.isValid(user_id)) {
+      return res.status(400).json({
+        message: "Invalid user id",
+      });
+    }
+
+    // change both ids from strings into ObjectIds
+    const projectObjectId = new ObjectId(projectId);
+    const userObjectId = new ObjectId(user_id);
+
+    // make sure the project exists
+    const project = await projects.findOne({
+      _id: projectObjectId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    // make sure the user exists
+    const user = await users.findOne({
+      _id: userObjectId,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // make sure the user is not already a member of this project
+    const existingMembership = await projectMemberships.findOne({
+      project_id: projectObjectId,
+      user_id: userObjectId,
+    });
+
+    if (existingMembership) {
+      return res.status(409).json({
+        message: "User is already a member of this project",
+      });
+    }
+
+    // add the user to the project
+    await projectMemberships.insertOne({
+      project_id: projectObjectId,
+      user_id: userObjectId,
+    });
+
+    // tell the client that the member was added
+    res.status(201).json({
+      message: "Member added successfully",
+    });
+  } catch (error) {
+    // show an error if MongoDB cannot add the member
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
 // start listening for requests
 app.listen(9000, () => {
     console.log("Server running on port 9000");
