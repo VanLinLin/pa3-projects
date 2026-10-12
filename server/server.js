@@ -347,6 +347,67 @@ app.post("/api/projects/:projectId/members", async (req, res) => {
   }
 });
 
+
+// remove a member from one project
+app.delete("/api/projects/:projectId/members/:userId", async (req, res) => {
+  try {
+    const { projectId, userId } = req.params;
+
+    // make sure both ids have valid ObjectId formats
+    if (!ObjectId.isValid(projectId) || !ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: "Invalid project or user id",
+      });
+    }
+
+    // change both ids from strings into ObjectIds
+    const projectObjectId = new ObjectId(projectId);
+    const userObjectId = new ObjectId(userId);
+
+    // make sure the project exists
+    const project = await projects.findOne({
+      _id: projectObjectId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    // do not allow the project lead to be removed
+    if (userObjectId.equals(project.project_lead_id)) {
+      return res.status(403).json({
+        message: "Project lead cannot be removed",
+      });
+    }
+
+    // remove the membership from this project
+    const result = await projectMemberships.deleteOne({
+      project_id: projectObjectId,
+      user_id: userObjectId,
+    });
+
+    // make sure the membership existed
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: "Membership not found",
+      });
+    }
+
+    // tell the client that the member was removed
+    res.status(200).json({
+      message: "Member removed successfully",
+    });
+  } catch (error) {
+    // show an error if MongoDB cannot remove the member
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
 // start listening for requests
 app.listen(9000, () => {
     console.log("Server running on port 9000");
